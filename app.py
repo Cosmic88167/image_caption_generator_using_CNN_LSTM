@@ -336,6 +336,11 @@ def clear_inputs():
 custom_css = """
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&display=swap');
 
+html, body {
+    overflow-x: hidden;
+    scroll-behavior: auto !important;
+}
+
 .gradio-container {
     max-width: 100% !important;
     width: 100% !important;
@@ -343,6 +348,7 @@ custom_css = """
     margin: 0 !important;
     font-family: 'Rajdhani', sans-serif !important;
     background: #000000 !important;
+    overflow-x: hidden;
 }
 
 .main-wrap {
@@ -352,10 +358,10 @@ custom_css = """
     background: #000000;
     color: #ffffff;
     position: relative;
-    overflow-x: hidden;
+    overflow: hidden;
 }
 
-/* Animated grid background */
+/* Static grid background - no animation to prevent scroll jumps */
 .main-wrap::before {
     content: '';
     position: fixed;
@@ -364,17 +370,11 @@ custom_css = """
         linear-gradient(rgba(0, 255, 255, 0.03) 1px, transparent 1px),
         linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px);
     background-size: 50px 50px;
-    animation: gridScroll 30s linear infinite;
     pointer-events: none;
     z-index: 0;
 }
 
-@keyframes gridScroll {
-    0% { transform: perspective(500px) rotateX(60deg) translateY(0); }
-    100% { transform: perspective(500px) rotateX(60deg) translateY(50px); }
-}
-
-/* Glowing orbs */
+/* Glowing orb - simplified, no animation */
 .main-wrap::after {
     content: '';
     position: fixed;
@@ -382,14 +382,8 @@ custom_css = """
     width: 500px; height: 500px;
     background: radial-gradient(circle, rgba(0, 255, 255, 0.15) 0%, transparent 70%);
     border-radius: 50%;
-    animation: orbFloat 8s ease-in-out infinite;
     pointer-events: none;
     z-index: 0;
-}
-
-@keyframes orbFloat {
-    0%, 100% { transform: translate(0, 0); }
-    50% { transform: translate(50px, 30px); }
 }
 
 /* Header */
@@ -438,15 +432,6 @@ custom_css = """
     text-transform: uppercase;
     letter-spacing: 0.05em;
     box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
-    animation: neonFlicker 4s ease-in-out infinite;
-}
-
-@keyframes neonFlicker {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.85; }
-    52% { opacity: 1; }
-    54% { opacity: 0.9; }
-    56% { opacity: 1; }
 }
 
 .status-dot {
@@ -559,7 +544,11 @@ custom_css = """
     color: #336666 !important;
 }
 
-/* Examples */
+/* Examples - prevent scroll jump */
+.examples-grid {
+    min-height: 80px;
+}
+
 .examples-grid img {
     border-radius: 6px !important;
     border: 2px solid rgba(0, 255, 255, 0.2) !important;
@@ -745,7 +734,7 @@ def create_interface():
     if not load_model_and_features():
         return None
 
-    with gr.Blocks(title="Image Caption Generator") as interface:
+    with gr.Blocks(title="Image Caption Generator", css=custom_css) as interface:
         with gr.Column(elem_classes="main-wrap"):
 
             with gr.Row(elem_classes="header-bar"):
@@ -784,7 +773,12 @@ def create_interface():
                         ] if os.path.exists(img)
                     ]
                     if example_images:
-                        gr.Examples(examples=example_images, inputs=image_input, label="")
+                        gr.Examples(
+                            examples=example_images,
+                            inputs=image_input,
+                            label="",
+                            elem_classes="examples-grid"
+                        )
 
                 with gr.Column(scale=1, elem_classes="right-panel"):
                     gr.Markdown("<div class='panel-title'>Generated Caption</div>")
@@ -809,8 +803,19 @@ def create_interface():
             with gr.Row(elem_classes="footer-bar"):
                 gr.Markdown("ResNet50 + LSTM  &middot;  TensorFlow  &middot;  Gradio")
 
-        clear_btn.click(fn=clear_inputs, inputs=None, outputs=[image_input, image_url])
-        submit_btn.click(fn=process_image, inputs=[image_input, image_url], outputs=[caption_output, audio_output])
+        # Prevent scroll jumps on button clicks
+        clear_btn.click(
+            fn=clear_inputs,
+            inputs=None,
+            outputs=[image_input, image_url],
+            scroll_to_output=False
+        )
+        submit_btn.click(
+            fn=process_image,
+            inputs=[image_input, image_url],
+            outputs=[caption_output, audio_output],
+            scroll_to_output=False
+        )
 
     return interface
 
@@ -833,8 +838,8 @@ if __name__ == "__main__":
             server_port=7860,
             share=False,
             debug=False,
-            css=custom_css,
             theme=gr.themes.Base()
         )
     else:
         print("\nFailed to initialize application")
+
