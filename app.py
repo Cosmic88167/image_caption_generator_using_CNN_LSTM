@@ -178,17 +178,34 @@ def generate_caption(image_features, min_length=5):
 
 
 def text_to_speech(text):
-    if not TTS_AVAILABLE:
+    if not TTS_AVAILABLE or not text or not text.strip():
         return None
     output_file = "caption_audio.wav"
     try:
-        engine = pyttsx3.init()
-        engine.setProperty('rate', 150)
-        engine.setProperty('volume', 0.9)
-        engine.save_to_file(text, output_file)
-        engine.runAndWait()
-        return output_file if os.path.exists(output_file) else None
-    except Exception:
+        tts_result = [None]
+
+        def _speak():
+            try:
+                eng = pyttsx3.init()
+                eng.setProperty('rate', 150)
+                eng.setProperty('volume', 0.9)
+                eng.save_to_file(text, output_file)
+                eng.runAndWait()
+                tts_result[0] = output_file
+            except Exception as e:
+                print(f"TTS thread error: {e}")
+                tts_result[0] = None
+
+        t = threading.Thread(target=_speak)
+        t.daemon = True
+        t.start()
+        t.join(timeout=3.0)
+
+        if tts_result[0] and os.path.exists(output_file):
+            return output_file
+        return None
+    except Exception as e:
+        print(f"TTS error: {e}")
         return None
 
 
@@ -220,13 +237,19 @@ def process_image(image_input, image_url):
             image_data = image_data.convert('RGB')
         with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
             temp_path = tmp.name
-        image_data.save(temp_path, format='JPEG', quality=95)
-        features = extract_image_features(temp_path)
-        if features is None:
-            return "Error extracting features", None
-        caption = generate_caption(features)
-        audio = text_to_speech(caption)
-        return caption, audio
+        try:
+            image_data.save(temp_path, format='JPEG', quality=95)
+            features = extract_image_features(temp_path)
+            if features is None:
+                return "Error extracting features", None
+            caption = generate_caption(features)
+            audio = text_to_speech(caption)
+            return caption, audio
+        finally:
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
     except Exception as e:
         return f"Error: {e}", None
 
