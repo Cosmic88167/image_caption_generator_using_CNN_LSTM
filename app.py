@@ -77,7 +77,7 @@ def load_model_and_features():
     try:
         if os.path.exists(MODEL_PATH):
             model = load_model(MODEL_PATH, compile=False)
-            maxlen = 39
+            maxlen = 38
         else:
             return False
         from tensorflow.keras.applications.resnet50 import ResNet50
