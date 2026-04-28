@@ -17,8 +17,6 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image as keras_image
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.applications.resnet50 import preprocess_input
-import pyttsx3
-
 # ===========================
 # Initialize Global Variables
 # ===========================
@@ -38,10 +36,17 @@ trainconvolve = None
 testconvolve = None
 newmodel = None
 
-# Text-to-speech engine
-tts_engine = pyttsx3.init()
-tts_engine.setProperty('rate', 150)
-tts_engine.setProperty('volume', 0.9)
+# Text-to-speech engine (optional — disabled on cloud deployments)
+TTS_AVAILABLE = False
+try:
+    import pyttsx3
+    tts_engine = pyttsx3.init()
+    tts_engine.setProperty('rate', 150)
+    tts_engine.setProperty('volume', 0.9)
+    TTS_AVAILABLE = True
+except Exception:
+    tts_engine = None
+    print("Note: Text-to-speech not available on this environment.")
 
 
 def load_vocabulary_from_prepro():
@@ -232,6 +237,9 @@ def generate_caption(image_features, use_sampling=False):
 
 def text_to_speech(text):
     """Convert text to speech with timeout"""
+    if not TTS_AVAILABLE:
+        return None
+
     output_file = "caption_audio.wav"
     tts_result = [None]
 
@@ -753,14 +761,13 @@ def create_interface():
 
                     gr.Markdown("<div class='panel-title' style='margin-top:1.25rem'>Quick Examples</div>")
                     example_images = [
-                        os.path.join("flicker 8k dataset/Images", img)
-                        for img in [
-                            "1000268201_693b08cb0e.jpg",
-                            "1001773457_577c3a7d70.jpg",
-                            "1002674143_1b742ab4b8.jpg",
-                            "1003163366_44323f5815.jpg"
-                        ]
-                        if os.path.exists(os.path.join("flicker 8k dataset/Images", img))
+                        img for img in [
+                            os.path.join("flicker 8k dataset/Images", "1000268201_693b08cb0e.jpg"),
+                            os.path.join("flicker 8k dataset/Images", "1001773457_577c3a7d70.jpg"),
+                            os.path.join("flicker 8k dataset/Images", "1002674143_1b742ab4b8.jpg"),
+                            os.path.join("flicker 8k dataset/Images", "1003163366_44323f5815.jpg"),
+                            "1.png", "2.png", "3.png", "4.png"
+                        ] if os.path.exists(img)
                     ]
                     if example_images:
                         gr.Examples(examples=example_images, inputs=image_input, label="")
