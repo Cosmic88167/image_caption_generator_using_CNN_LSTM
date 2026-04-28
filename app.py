@@ -281,24 +281,37 @@ def load_image_from_url(url):
 
 
 def process_image(image_input, image_url):
-    """Main function to process image and generate caption"""
+    """Main function to process image and generate caption.
+    Uploaded image takes priority over URL."""
     try:
         image_data = None
-        if image_url:
+
+        # Priority 1: Uploaded image (Gradio type="pil" returns PIL Image)
+        if image_input is not None:
+            if isinstance(image_input, np.ndarray):
+                image_data = Image.fromarray(image_input.astype('uint8'))
+            elif isinstance(image_input, Image.Image):
+                image_data = image_input
+            else:
+                return "Unsupported image format from upload", None
+
+        # Priority 2: Image URL
+        elif image_url and str(image_url).strip():
             image_data = load_image_from_url(image_url.strip())
             if image_data is None:
                 return "Error loading image from URL", None
-        elif isinstance(image_input, np.ndarray) or isinstance(image_input, Image.Image):
-            image_data = image_input
+
         else:
             return "Upload an image or enter a valid image URL", None
 
+        # Ensure RGB mode for model compatibility
+        if image_data.mode != 'RGB':
+            image_data = image_data.convert('RGB')
+
+        # Save to temp file
         with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
             temp_path = tmp.name
-        if isinstance(image_data, np.ndarray):
-            Image.fromarray(image_data.astype('uint8')).save(temp_path)
-        else:
-            image_data.save(temp_path)
+        image_data.save(temp_path, format='JPEG', quality=95)
 
         print("Extracting image features...")
         image_features = extract_image_features(temp_path)
@@ -312,7 +325,8 @@ def process_image(image_input, image_url):
         audio_file = text_to_speech(caption)
         return caption, audio_file
     except Exception as e:
-        return f"Error: {e}", None
+        print(f"[ERROR] process_image: {e}")
+        return f"Error processing image: {e}", None
 
 
 def clear_inputs():
@@ -824,4 +838,3 @@ if __name__ == "__main__":
         )
     else:
         print("\nFailed to initialize application")
-
