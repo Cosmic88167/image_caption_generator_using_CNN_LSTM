@@ -9,7 +9,8 @@ import pickle
 import os
 import requests
 import tempfile
-import threading
+import subprocess
+import sys
 from io import BytesIO
 from PIL import Image
 import gradio as gr
@@ -180,29 +181,21 @@ def generate_caption(image_features, min_length=5):
 def text_to_speech(text):
     if not TTS_AVAILABLE or not text or not text.strip():
         return None
-    output_file = "caption_audio.wav"
+    output_file = tempfile.mktemp(suffix=".wav")
     try:
-        tts_result = [None]
-
-        def _speak():
-            try:
-                eng = pyttsx3.init()
-                eng.setProperty('rate', 150)
-                eng.setProperty('volume', 0.9)
-                eng.save_to_file(text, output_file)
-                eng.runAndWait()
-                tts_result[0] = output_file
-            except Exception as e:
-                print(f"TTS thread error: {e}")
-                tts_result[0] = None
-
-        t = threading.Thread(target=_speak)
-        t.daemon = True
-        t.start()
-        t.join(timeout=3.0)
-
-        if tts_result[0] and os.path.exists(output_file):
+        result = subprocess.run(
+            [sys.executable, "tts_worker.py", text, output_file],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+        if result.returncode == 0 and "OK" in result.stdout and os.path.exists(output_file):
             return output_file
+        print(f"TTS subprocess failed: {result.stdout} {result.stderr}")
+        return None
+    except subprocess.TimeoutExpired:
+        print("TTS subprocess timed out")
         return None
     except Exception as e:
         print(f"TTS error: {e}")
