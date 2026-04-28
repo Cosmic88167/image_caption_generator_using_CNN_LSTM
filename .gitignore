@@ -1,0 +1,47 @@
+# Virtual Environment
+.venv/
+venv/
+env/
+ENV/
+
+# Datasets
+flicker 8k dataset/
+dataset/
+*.tfrecord
+
+# Model files
+*.h5
+*.hdf5
+*.pkl
+*.pth
+*.onnx
+*.pb
+*.ckpt
+
+# Generated files
+caption_audio.wav
+*.mp3
+*.ogg
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
