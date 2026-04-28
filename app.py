@@ -120,90 +120,54 @@ def extract_image_features(img_path):
         return None
 
 
-def generate_caption(image_features, beam_width=3, min_length=5):
-    """Generate caption using beam search for better accuracy and completeness."""
+def generate_caption(image_features, min_length=5):
+    """Generate caption using fast greedy decoding with repetition blocking and minimum length."""
     global model, word2no, no2word, maxlen
     if model is None or word2no is None:
         return "Error: Model not loaded"
     try:
         image_features = image_features.reshape((1, 2048))
+        sos_idx = word2no.get('<sos>', len(word2no) - 1)
+        eos_idx = word2no.get('<eos>', len(word2no))
         
-        # Each beam: (sequence_list, log_prob)
-        beams = [([word2no['<sos>']], 0.0)]
-        completed = []
+        seq = [sos_idx]
         
         for step in range(maxlen):
-            candidates = []
-            for seq, score in beams:
-                if len(seq) > 0 and seq[-1] == word2no.get('<eos>'):
-                    completed.append((seq, score))
-                    continue
-                
-                partial = pad_sequences([seq], maxlen, padding='post')
-                preds = model([partial, image_features], training=False).numpy()[0]
-                
-                # Get top-k candidates
-                top_indices = np.argsort(preds)[::-1][:beam_width + 2]
-                
-                for idx in top_indices:
-                    if idx == 0:
-                        continue
-                    word = no2word.get(idx)
-                    if word is None:
-                        continue
-                    # Block repetition of same word twice consecutively
-                    if len(seq) > 0 and idx == seq[-1]:
-                        continue
-                    # Block <sos> after start
-                    if word == '<sos>' and len(seq) > 1:
-                        continue
-                    
-                    # Use log probability (add because log)
-                    prob = preds[idx]
-                    if prob <= 0:
-                        prob = 1e-10
-                    new_score = score + np.log(prob)
-                    candidates.append((seq + [idx], new_score))
+            partial = pad_sequences([seq], maxlen, padding='post')
+            preds = model([partial, image_features], training=False).numpy()[0]
             
-            if not candidates:
+            # Block repetition: strongly reduce prob of last word
+            if len(seq) > 1:
+                preds[seq[-1]] *= 0.05  # 95% penalty for repeating last word
+            
+            # Prevent early <eos> before min_length
+            if step < min_length:
+                preds[eos_idx] = 0.0
+            
+            # Never output <sos> mid-sequence
+            preds[sos_idx] = 0.0
+            
+            # Get best valid word
+            predicted_no = int(np.argmax(preds))
+            
+            # Safety: if argmax is blocked, pick next best
+            if preds[predicted_no] <= 0:
+                sorted_indices = np.argsort(preds)[::-1]
+                for idx in sorted_indices:
+                    if idx > 0 and idx not in (sos_idx, eos_idx) and preds[idx] > 0:
+                        predicted_no = idx
+                        break
+            
+            if predicted_no not in no2word:
                 break
             
-            # Sort by score descending, keep top beam_width
-            candidates.sort(key=lambda x: x[1], reverse=True)
-            beams = candidates[:beam_width]
+            seq.append(predicted_no)
             
-            # Early exit if all beams completed
-            if all(seq[-1] == word2no.get('<eos>') for seq, _ in beams):
-                completed.extend(beams)
+            if no2word[predicted_no] == "<eos>":
                 break
         
-        # Add remaining beams to completed
-        completed.extend(beams)
-        
-        if not completed:
-            return "(No caption generated)"
-        
-        # Normalize by length with mild penalty for very short captions
-        def score_norm(seq, score):
-            length = max(len(seq) - 1, 1)  # exclude <sos>
-            # Apply length penalty: prefer longer captions up to a point
-            penalty = ((5 + length) / 6) ** 0.7
-            return score / penalty
-        
-        completed.sort(key=lambda x: score_norm(x[0], x[1]), reverse=True)
-        
-        # Pick best caption that meets minimum length if possible
-        best_seq = None
-        for seq, _ in completed:
-            words = [no2word.get(w, '') for w in seq[1:]]  # exclude <sos>
-            words = [w for w in words if w and w not in ('<sos>', '<eos>')]
-            if len(words) >= min_length:
-                best_seq = seq
-                break
-        if best_seq is None:
-            best_seq = completed[0][0]
-        
-        words = [no2word.get(w, '') for w in best_seq[1:]]
+        # Convert indices to words
+        words = [no2word.get(w, '') for w in seq[1:]]  # skip <sos>
         words = [w for w in words if w and w not in ('<sos>', '<eos>')]
         caption = ' '.join(words)
         
