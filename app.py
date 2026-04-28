@@ -446,7 +446,7 @@ def create_interface():
     if not load_model_and_features():
         return None
 
-    with gr.Blocks(title="Image Caption Generator", css=custom_css) as interface:
+    with gr.Blocks(title="Image Caption Generator") as interface:
         with gr.Column():
             with gr.Row(elem_classes="header-bar"):
                 with gr.Column(scale=3):
@@ -488,6 +488,6 @@ if __name__ == "__main__":
     interface = create_interface()
     if interface is not None:
         print("\nLaunching Gradio server...")
-        interface.launch(server_name="0.0.0.0", server_port=7860, share=False, debug=False, theme=gr.themes.Base())
+        interface.launch(server_name="127.0.0.1", server_port=7860, share=False, debug=False, theme=gr.themes.Base(), css=custom_css)
     else:
         print("\nFailed to initialize")
