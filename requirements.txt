@@ -1,21 +1,6 @@
-# Image Caption Generator GUI - Dependencies
-
-# Core ML/DL Libraries
 tensorflow>=2.10.0
-keras>=2.10.0
 numpy>=1.21.0
 Pillow>=9.0.0
-
-# Gradio for GUI
-gradio>=3.35.0
-
-# NLP & Preprocessing
-matplotlib>=3.5.0
-
-# Text-to-Speech
-pyttsx3>=2.90
-
-# Optional: For better performance
-scikit-learn>=1.0.0
-scipy>=1.8.0
+gradio>=4.0.0
 requests>=2.31.0
+
